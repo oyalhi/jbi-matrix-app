@@ -1,4 +1,5 @@
-﻿using MatrixApp.Services;
+﻿using System.Diagnostics;
+using MatrixApp.Services;
 
 class Program
 {
@@ -9,9 +10,13 @@ class Program
     {
         Console.WriteLine("Performing matrix multiplication...");
 
+        Stopwatch stopwatch = Stopwatch.StartNew();
+
         await MatrixService.InitializeAsync(count);
 
         resultMatrix = await MatrixService.MultiplyMatricesToCreateNewMatrixAsync(count);
+
+        stopwatch.Stop();
 
         for (int i = 0; i < count; i++)
         {
@@ -23,5 +28,6 @@ class Program
         }
 
         Console.WriteLine("Matrix multiplication completed.");
+        Console.WriteLine($"Total time taken: {stopwatch.Elapsed.TotalSeconds:F2} seconds");
     }
 }
