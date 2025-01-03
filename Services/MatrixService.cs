@@ -6,17 +6,16 @@ namespace MatrixApp.Services
 {
     public class MatrixService
     {
-        private static readonly JsonSerializerOptions jsonSerializerOptions = new() { PropertyNameCaseInsensitive = true };
-
         private static readonly HttpClient client = new();
+        private static readonly JsonSerializerOptions jsonSerializerOptions = new() { PropertyNameCaseInsensitive = true };
 
         static readonly string matrixBaseUrl = "http://100.29.16.196:8080/api/matrix";
         static readonly string matrixInitUrl = matrixBaseUrl + "/init";
         static readonly string matrixARowUrl = matrixBaseUrl + "/A/row";
         static readonly string matrixBColumnUrl = matrixBaseUrl + "/B/column";
 
-        private static readonly Dictionary<int, int[]> cachedRows = [];
-        private static readonly Dictionary<int, int[]> cachedColumns = [];
+        private readonly static Dictionary<int, int[]> matrixARows = [];
+        private readonly static Dictionary<int, int[]> matrixBColumns = [];
 
         public static async Task InitializeAsync(int count)
         {
@@ -36,23 +35,6 @@ namespace MatrixApp.Services
             Console.WriteLine("Matrices initialized successfully.");
         }
 
-        public static int MultiplyRowAndColumn(int[] row, int[] column)
-        {
-            if (row.Length != column.Length)
-                throw new ArgumentException("Row and Column must have the same length." + row.Length + " " + column.Length);
-
-            int result = 0;
-            for (int i = 0; i < row.Length; i++)
-            {
-                result += row[i] * column[i];
-            }
-            return result;
-        }
-
-        public static int[]? RowSelector(RowData rowData) => rowData.Row;
-
-        public static int[]? ColumnSelector(ColumnData columnData) => columnData.Column;
-
         public static int[]? ParseMatrixData<T>(string data, Func<T, int[]?> selector)
         {
             var deserializedData = JsonSerializer.Deserialize<T>(data, jsonSerializerOptions);
@@ -61,98 +43,91 @@ namespace MatrixApp.Services
             return result;
         }
 
-        public static async Task<int[]?> GetMatrixARowAsync(int rowNumber)
+        public static async Task PreFetchAllRowsAndColumnsAsync(int count)
         {
-            if (cachedColumns.TryGetValue(rowNumber, out var cachedRow))
-            {
-                return cachedRow;
-            }
+            Console.WriteLine("Starting to pre-fetch rows and columns...");
 
-            var rowResponse = await client.GetAsync(matrixARowUrl + "/" + rowNumber);
+            var fetchRowsTasks = Enumerable.Range(1, count)
+                .Select(async i =>
+                {
+                    await FetchAndCacheRowAsync(i);
+                    Console.WriteLine($"Fetched row {i}.");
+                });
 
-            if (!rowResponse.IsSuccessStatusCode) throw new Exception("Failed to fetch data for multiplication.");
+            var fetchColumnsTasks = Enumerable.Range(1, count)
+                .Select(async i =>
+                {
+                    await FetchAndCacheColumnAsync(i);
+                    Console.WriteLine($"Fetched column {i}.");
+                });
 
-            var rowData = rowResponse.Content.ReadAsStringAsync().Result;
-            var row = ParseMatrixData<RowData>(rowData, RowSelector);
+            // Wait for all tasks
+            await Task.WhenAll(fetchRowsTasks.Concat(fetchColumnsTasks));
 
-            if (row != null)
-            {
-                cachedRows[rowNumber] = row;
-            }
-
-            return row;
+            Console.WriteLine("All rows and columns have been pre-fetched successfully.");
         }
 
-        public static async Task<int[]?> GetMatrixBColumnAsync(int columnNumber)
+
+        private static async Task FetchAndCacheRowAsync(int rowNumber)
         {
-            if (cachedColumns.TryGetValue(columnNumber, out var cachedColumn))
+            var url = matrixARowUrl + "/" + rowNumber;
+            var response = await client.GetAsync(url);
+            if (!response.IsSuccessStatusCode)
             {
-                return cachedColumn;
+                Console.WriteLine($"IsSuccessStatusCode: {response.IsSuccessStatusCode} {rowNumber} {url}");
+                var responseContent = await response.Content.ReadAsStringAsync();
+                throw new Exception($"Failed to fetch row {rowNumber} from Matrix A. Status: {response.StatusCode}, Response: {responseContent}");
             }
 
-            var columnResponse = await client.GetAsync(matrixBColumnUrl + "/" + columnNumber);
-            if (!columnResponse.IsSuccessStatusCode) throw new Exception("Failed to fetch data for multiplication.");
-
-            var columnData = columnResponse.Content.ReadAsStringAsync().Result;
-            var column = ParseMatrixData<ColumnData>(columnData, ColumnSelector);
-
-            if (column != null)
-            {
-                cachedColumns[columnNumber] = column;
-            }
-
-            return column;
+            var rowData = await response.Content.ReadAsStringAsync();
+            var row = ParseMatrixData<RowData>(rowData, data => data.Row);
+            if (row != null) matrixARows[rowNumber] = row;
         }
 
-        public static async Task<int> FetchAndMultiplyMatricesAsync(int rowNumber, int columnNumber)
+        private static async Task FetchAndCacheColumnAsync(int columnNumber)
         {
-            Console.WriteLine($"Fetching data for multiplication from row {rowNumber} and column {columnNumber}...");
-
-            var row = await GetMatrixARowAsync(rowNumber);
-            var column = await GetMatrixBColumnAsync(columnNumber);
-
-            if (row == null || column == null)
+            var url = matrixBColumnUrl + "/" + columnNumber;
+            var response = await client.GetAsync(url);
+            if (!response.IsSuccessStatusCode)
             {
-                throw new Exception("Failed to fetch data for multiplication.");
+                Console.WriteLine($"IsSuccessStatusCode: {response.IsSuccessStatusCode} {columnNumber} {url}");
+                var responseContent = await response.Content.ReadAsStringAsync();
+                throw new Exception($"Failed to fetch column {columnNumber} from Matrix A. Status: {response.StatusCode}, Response: {responseContent}");
             }
 
-            return MultiplyRowAndColumn(row, column);
+            var columnData = await response.Content.ReadAsStringAsync();
+            var column = ParseMatrixData<ColumnData>(columnData, data => data.Column);
+            if (column != null) matrixBColumns[columnNumber] = column;
         }
 
-        public static async Task<int[,]> MultiplyMatricesToCreateNewMatrixAsync(int count)
+        public static int MultiplyRowAndColumn(int rowNumber, int columnNumber)
+        {
+            if (!matrixARows.ContainsKey(rowNumber) || !matrixBColumns.ContainsKey(columnNumber))
+                throw new Exception($"Row {rowNumber} or Column {columnNumber} is missing from the cache.");
+
+            var row = matrixARows[rowNumber];
+            var column = matrixBColumns[columnNumber];
+
+            if (row.Length != column.Length)
+                throw new ArgumentException("Row and Column lengths do not match.");
+
+            return row.Zip(column, (r, c) => r * c).Sum();
+        }
+
+        public static int[,] MultiplyMatricesToCreateNewMatrix(int count)
         {
             int[,] resultMatrix = new int[count, count];
-            var tasks = new List<Task<(int Row, int Column, int Result)>>();
 
-            for (int i = 0; i < count; i++)
+            for (int i = 1; i <= count; i++)
             {
-                for (int j = 0; j < count; j++)
+                for (int j = 1; j <= count; j++)
                 {
-                    int row = i;
-                    int column = j;
-
-                    tasks.Add(Task.Run(async () =>
-                    {
-                        var rowData = await GetMatrixARowAsync(row);
-                        var columnData = await GetMatrixBColumnAsync(column);
-
-                        if (rowData == null || columnData == null)
-                            throw new Exception($"Failed to fetch data for row {row} and column {column}.");
-
-                        int result = MultiplyRowAndColumn(rowData, columnData);
-                        return (Row: row, Column: column, Result: result);
-                    }));
+                    resultMatrix[i - 1, j - 1] = MultiplyRowAndColumn(i, j);
                 }
-            }
-
-            var results = await Task.WhenAll(tasks);
-
-            foreach (var (Row, Column, Result) in results)
-            {
-                resultMatrix[Row, Column] = Result;
             }
 
             return resultMatrix;
         }
     }
+
 }

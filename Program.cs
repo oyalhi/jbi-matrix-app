@@ -1,23 +1,27 @@
 ﻿using System.Diagnostics;
 using MatrixApp.Services;
 
+
 class Program
 {
-    static readonly int count = 3;
-    static int[,] resultMatrix = new int[count, count];
+    static readonly int count = 1;
 
     static async Task Main(string[] args)
     {
-        Console.WriteLine("Performing matrix multiplication...");
-
+        Console.WriteLine("Initializing matrices...");
         Stopwatch stopwatch = Stopwatch.StartNew();
-
         await MatrixService.InitializeAsync(count);
 
-        resultMatrix = await MatrixService.MultiplyMatricesToCreateNewMatrixAsync(count);
+        Console.WriteLine("Pre-fetching all rows and columns...");
+        await MatrixService.PreFetchAllRowsAndColumnsAsync(count);
+
+        Console.WriteLine("Performing matrix multiplication...");
+        var resultMatrix = MatrixService.MultiplyMatricesToCreateNewMatrix(count);
 
         stopwatch.Stop();
+        Console.WriteLine($"Total time taken: {stopwatch.Elapsed.TotalSeconds:F2} seconds");
 
+        Console.WriteLine("Resultant Matrix:");
         for (int i = 0; i < count; i++)
         {
             for (int j = 0; j < count; j++)
@@ -28,6 +32,5 @@ class Program
         }
 
         Console.WriteLine("Matrix multiplication completed.");
-        Console.WriteLine($"Total time taken: {stopwatch.Elapsed.TotalSeconds:F2} seconds");
     }
 }
