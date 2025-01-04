@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -126,8 +127,11 @@ namespace MatrixApp.Services
 
 		public static async Task ValidateMatrixAsync(int[,] resultMatrix)
 		{
+			var stopwatch = new Stopwatch();
+
 			var arrayOfArray = ConvertToArrayOfArrays(resultMatrix);
 			var serializedMatrix = JsonSerializer.Serialize(arrayOfArray);
+
 			var hashBytes = MD5.HashData(Encoding.UTF8.GetBytes(serializedMatrix));
 			var base64Hash = Convert.ToBase64String(hashBytes);
 
@@ -139,7 +143,11 @@ namespace MatrixApp.Services
 				"application/json"
 			);
 
+			stopwatch.Start();
 			var response = await client.PostAsync(validateUrl, requestBody);
+			stopwatch.Stop();
+			Console.WriteLine($"HTTP POST request took: {stopwatch.ElapsedMilliseconds} ms");
+			stopwatch.Reset();
 
 			if (!response.IsSuccessStatusCode)
 			{
@@ -155,14 +163,14 @@ namespace MatrixApp.Services
 
 			var arrayOfArrays = new int[rows][];
 
-			for (int i = 0; i < rows; i++)
+			Parallel.For(0, rows, i =>
 			{
 				arrayOfArrays[i] = new int[cols];
 				for (int j = 0; j < cols; j++)
 				{
 					arrayOfArrays[i][j] = multiDimensionalArray[i, j];
 				}
-			}
+			});
 
 			return arrayOfArrays;
 		}
