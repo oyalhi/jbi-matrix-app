@@ -1,9 +1,11 @@
 ﻿using System.Diagnostics;
+using System.Net;
 using MatrixApp.Services;
 
 class Program
 {
-	static readonly int count = 1000;
+	static readonly int count = 1_000;
+	static readonly int batchSize = 200;
 
 	static async Task Main(string[] args)
 	{
@@ -21,9 +23,9 @@ class Program
 
 		operationStopwatch.Reset();
 
-		Console.WriteLine("Fetching all rows and columns...");
+		Console.WriteLine($"Fetching {count} rows and columns in batches of {batchSize}...");
 		operationStopwatch.Start();
-		await MatrixService.FetchAllRowsAndColumnsInBatchesAsync(count, 100);
+		await MatrixService.FetchAllRowsAndColumnsInBatchesAsync(count, batchSize);
 		operationStopwatch.Stop();
 		Console.WriteLine($"Fetching took: {operationStopwatch.ElapsedMilliseconds} ms");
 		Console.WriteLine();
@@ -45,7 +47,6 @@ class Program
 		{
 			Console.WriteLine("Validating result matrix...");
 			await MatrixService.ValidateMatrixAsync(resultMatrix);
-			Console.WriteLine("Matrix multiplication validated successfully.");
 		}
 		catch (Exception ex)
 		{

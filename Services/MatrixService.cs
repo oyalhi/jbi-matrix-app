@@ -129,8 +129,10 @@ namespace MatrixApp.Services
 		{
 			var stopwatch = new Stopwatch();
 
+
+
 			var arrayOfArray = ConvertToArrayOfArrays(resultMatrix);
-			var serializedMatrix = JsonSerializer.Serialize(arrayOfArray);
+			var serializedMatrix = string.Join(",", arrayOfArray.Select(row => string.Join(",", row)));
 
 			var hashBytes = MD5.HashData(Encoding.UTF8.GetBytes(serializedMatrix));
 			var base64Hash = Convert.ToBase64String(hashBytes);
@@ -138,9 +140,9 @@ namespace MatrixApp.Services
 			Console.WriteLine($"Generated MD5 Base64 Hash: {base64Hash}");
 
 			var requestBody = new StringContent(
-				JsonSerializer.Serialize(new { hash = base64Hash }),
-				Encoding.UTF8,
-				"application/json"
+					JsonSerializer.Serialize(new { hash = base64Hash }),
+					Encoding.UTF8,
+					"application/json"
 			);
 
 			stopwatch.Start();
@@ -149,12 +151,22 @@ namespace MatrixApp.Services
 			Console.WriteLine($"HTTP POST request took: {stopwatch.ElapsedMilliseconds} ms");
 			stopwatch.Reset();
 
+			var responseContent = await response.Content.ReadAsStringAsync();
+
 			if (!response.IsSuccessStatusCode)
 			{
-				var errorMessage = await response.Content.ReadAsStringAsync();
-				throw new Exception($"Validation failed. Status: {response.StatusCode}, Response: {errorMessage}");
+				throw new Exception($"Validation failed. Status: {response.StatusCode}, Response: {responseContent}");
 			}
+
+			if (!responseContent.Contains("\"result\":\"Success\""))
+			{
+				throw new Exception($"Validation failed. Server response: {responseContent}");
+			}
+
+			Console.WriteLine("Matrix multiplication validated successfully.");
 		}
+
+		private class ValidationResponse { public string? Result { get; set; } }
 
 		private static int[][] ConvertToArrayOfArrays(int[,] multiDimensionalArray)
 		{

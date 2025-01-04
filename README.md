@@ -2,6 +2,6 @@
 
 ## Result Output
 
-POST request takes long time, about 98% of validation task
+POST request to validate takes long time, about 99% of validation task
 
-![Result Matrix](images/result.png)
+![Result Matrix](images/result-99.png)
