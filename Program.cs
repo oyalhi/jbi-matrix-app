@@ -1,36 +1,61 @@
 ﻿using System.Diagnostics;
 using MatrixApp.Services;
 
-
 class Program
 {
-    static readonly int count = 1;
+	static readonly int count = 1000;
 
-    static async Task Main(string[] args)
-    {
-        Console.WriteLine("Initializing matrices...");
-        Stopwatch stopwatch = Stopwatch.StartNew();
-        await MatrixService.InitializeAsync(count);
+	static async Task Main(string[] args)
+	{
+		var totalStopwatch = new Stopwatch();
+		var operationStopwatch = new Stopwatch();
 
-        Console.WriteLine("Pre-fetching all rows and columns...");
-        await MatrixService.PreFetchAllRowsAndColumnsAsync(count);
+		totalStopwatch.Start();
 
-        Console.WriteLine("Performing matrix multiplication...");
-        var resultMatrix = MatrixService.MultiplyMatricesToCreateNewMatrix(count);
+		Console.WriteLine("Initializing matrices...");
+		operationStopwatch.Start();
+		await MatrixService.InitializeAsync(count);
+		operationStopwatch.Stop();
+		Console.WriteLine($"Initialization took: {operationStopwatch.ElapsedMilliseconds} ms");
+		Console.WriteLine();
 
-        stopwatch.Stop();
-        Console.WriteLine($"Total time taken: {stopwatch.Elapsed.TotalSeconds:F2} seconds");
+		operationStopwatch.Reset();
 
-        Console.WriteLine("Resultant Matrix:");
-        for (int i = 0; i < count; i++)
-        {
-            for (int j = 0; j < count; j++)
-            {
-                Console.Write(resultMatrix[i, j] + " ");
-            }
-            Console.WriteLine();
-        }
+		Console.WriteLine("Fetching all rows and columns...");
+		operationStopwatch.Start();
+		await MatrixService.FetchAllRowsAndColumnsInBatchesAsync(count, 100);
+		operationStopwatch.Stop();
+		Console.WriteLine($"Fetching took: {operationStopwatch.ElapsedMilliseconds} ms");
+		Console.WriteLine();
 
-        Console.WriteLine("Matrix multiplication completed.");
-    }
+		operationStopwatch.Reset();
+
+		Console.WriteLine("Performing matrix multiplication...");
+		operationStopwatch.Start();
+		var resultMatrix = MatrixService.MultiplyMatricesToCreateNewMatrix(count);
+		operationStopwatch.Stop();
+		Console.WriteLine("Matrix multiplication completed.");
+		Console.WriteLine($"Matrix multiplication took: {operationStopwatch.ElapsedMilliseconds} ms");
+		Console.WriteLine();
+
+		operationStopwatch.Reset();
+
+		operationStopwatch.Start();
+		try
+		{
+			Console.WriteLine("Validating result matrix...");
+			await MatrixService.ValidateMatrixAsync(resultMatrix);
+			Console.WriteLine("Matrix multiplication validated successfully.");
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Validation failed: {ex.Message}");
+		}
+		operationStopwatch.Stop();
+		Console.WriteLine($"Validation took: {operationStopwatch.ElapsedMilliseconds} ms");
+		Console.WriteLine();
+
+		totalStopwatch.Stop();
+		Console.WriteLine($"Total execution time: {totalStopwatch.ElapsedMilliseconds} ms");
+	}
 }
