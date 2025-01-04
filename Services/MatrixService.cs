@@ -49,7 +49,7 @@ namespace MatrixApp.Services
 
 		public static async Task FetchAllRowsAndColumnsInBatchesAsync(int count, int batchSize)
 		{
-			Console.WriteLine("Starting to pre-fetch rows and columns in batches...");
+			Console.WriteLine("Starting to fetch rows and columns in batches...");
 
 			for (int start = 0; start < count; start += batchSize)
 			{
@@ -70,7 +70,7 @@ namespace MatrixApp.Services
 				await Task.WhenAll(fetchRowsTasks.Concat(fetchColumnsTasks));
 			}
 
-			Console.WriteLine("All rows and columns have been pre-fetched successfully in batches.");
+			Console.WriteLine("All rows and columns have been fetched successfully in batches.");
 		}
 
 		private static async Task FetchAndCacheRowAsync(int rowNumber)
