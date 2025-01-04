@@ -104,18 +104,8 @@ namespace MatrixApp.Services
 
 		public static int MultiplyRowAndColumn(int rowNumber, int columnNumber)
 		{
-			if (!matrixARows.TryGetValue(rowNumber, out _))
-				throw new Exception($"Row {rowNumber} is missing from the cache.");
-
-			if (!matrixBColumns.TryGetValue(columnNumber, out _))
-				throw new Exception($"Column {columnNumber} is missing from the cache.");
-
 			var row = matrixARows[rowNumber];
 			var column = matrixBColumns[columnNumber];
-
-			if (row.Length != column.Length)
-				throw new ArgumentException("Row and Column lengths do not match.");
-
 			return row.Zip(column, (r, c) => r * c).Sum();
 		}
 
@@ -123,13 +113,13 @@ namespace MatrixApp.Services
 		{
 			int[,] resultMatrix = new int[count, count];
 
-			for (int i = 0; i < count; i++)
+			Parallel.For(0, count, i =>
 			{
 				for (int j = 0; j < count; j++)
 				{
 					resultMatrix[i, j] = MultiplyRowAndColumn(i, j);
 				}
-			}
+			});
 
 			return resultMatrix;
 		}
